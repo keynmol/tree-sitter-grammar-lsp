@@ -1,0 +1,12 @@
+{
+  "dependencies": {
+    "acorn": "^8.8.0"
+  },
+  "main": "scala.js",
+  "scripts": {
+    "run": "node scala.js"
+  },
+  "devDependencies": {
+    "typescript": "^4.7.4"
+  }
+}

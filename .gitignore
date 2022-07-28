@@ -1,0 +1,5 @@
+out
+.metals
+.bsp
+.scala-build
+node_modules
