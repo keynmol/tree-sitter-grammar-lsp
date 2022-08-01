@@ -17,82 +17,129 @@ import cats.instances.future.*
 import cats.implicits.*
 
 import scala.concurrent.ExecutionContext.Implicits.global
+import cats.effect.IO
+import cats.effect.IOApp
+import cats.effect.std.Queue
 
-@main def hello =
-  val logger = scribe
-    .Logger("LSP")
-    .orphan()
-    .replace()
+object GrammarJSServer extends IOApp.Simple:
+  def run =
+    val logger = scribe
+      .Logger("LSP")
+      .orphan()
+      .replace()
 
-  logger.info(s"Starting")
+    logger.info(s"Starting")
 
-  var state = Option.empty[Grammar]
+    val state = State.create()
 
-  val server = ImmutableLSPBuilder
-    .create[Future](logger)
-    .handleRequest(initialize) { (in, req) =>
-      Future.successful {
-        InitializeResult(
-          ServerCapabilities(
-            hoverProvider = Opt(true),
-            definitionProvider = Opt(true)
-          ),
-          Opt(
-            InitializeResult
-              .ServerInfo(name = "grammarsy", version = Opt("0.0.1"))
-          )
-        )
-      }
-    }
-    .handleRequest(textDocument.definition) { (in, req) =>
-      Future {
-        Definition(Vector.empty)
-      }
-    }
-    .handleNotification(nt.textDocument.didOpen) { (in, req) =>
-      val path = in.textDocument.uri.value.drop("file://".length)
-      Fs.readFileFuture(path, "utf8").map { case str: String =>
-        state = Some(indexGrammar(str))
-      }
-    }
-    .handleRequest(textDocument.hover) { (in, req) =>
-      import aliases.MarkedString
-      Future.successful {
-        Nullable {
-          Hover(contents = Vector(MarkedString("Hello"), MarkedString("World")))
+    import jsonrpclib.fs2interop.*
+    import jsonrpclib.*
+
+    def server(sink: Communicate[IO]) =
+      ImmutableLSPBuilder
+        .create[IO]
+        .handleRequest(initialize) { (in, back) =>
+          IO {
+            InitializeResult(
+              ServerCapabilities(
+                hoverProvider = Opt(true),
+                definitionProvider = Opt(true),
+                documentSymbolProvider = Opt(true),
+                textDocumentSync = Opt(
+                  TextDocumentSyncOptions(
+                    openClose = Opt(true),
+                    save = Opt(true)
+                  )
+                )
+              ),
+              Opt(
+                InitializeResult
+                  .ServerInfo(name = "grammarsy", version = Opt("0.0.1"))
+              )
+            )
+          }
         }
+        .handleNotification(nt.textDocument.didOpen) { in =>
+          val path = in.textDocument.uri.value.drop("file://".length)
+          IO.fromFuture {
+            IO {
+              Fs.readFileFuture(path, "utf8").map { case str: String =>
+                state.index(str, in.textDocument.uri)
+              }
+            }
+          }
+        }
+        .handleNotification(nt.textDocument.didSave) { in =>
+          val path = in.textDocument.uri.value.drop("file://".length)
+          IO.fromFuture {
+            IO {
+              Fs.readFileFuture(path, "utf8").map { case str: String =>
+                state.index(str, in.textDocument.uri)
+              }
+            }
+          }
+        }
+        .handleRequest(textDocument.documentSymbol) { (in, back) =>
+          back.notification(
+            nt.window.showMessage,
+            ShowMessageParams(
+              enumerations.MessageType.Error,
+              "Hello from langoustine!"
+            )
+          ) *>
+            IO {
+              state.rules.toOption.toVector.flatten.map {
+                case (ruleName, location) =>
+                  SymbolInformation(
+                    location = location,
+                    name = ruleName,
+                    kind = enumerations.SymbolKind.Field
+                  )
+              }
+            }
+        }
+        .handleRequest(textDocument.definition) { (in, back) =>
+          IO {
+            val loc = state.ruleDefinition(in.position).toOption.flatten
+
+            loc match
+              case None                => Definition(Vector.empty)
+              case Some((ruleName, v)) => Definition(v)
+          }
+        }
+        .handleRequest(textDocument.hover) { (in, back) =>
+          IO {
+            val loc = state.ruleHover(in.position).toOption.flatten
+
+            loc match
+              case None => Nullable.NULL
+              case Some((ruleName, contents)) =>
+                Nullable {
+                  Hover(contents =
+                    Vector(
+                      MarkedString(s"Reduction `$ruleName`"),
+                      MarkedString(MarkedString.S0("javascript", contents))
+                    )
+                  )
+                }
+            end match
+          }
+        }
+        .build(sink)
+
+    FS2Channel
+      .lspCompliant[IO](
+        byteStream = fs2.io.stdin[IO],
+        byteSink = fs2.io.stdout[IO],
+        startingEndpoints = Nil
+      )
+      .flatMap { channel =>
+        val e1 :: eRest = server(Communicate.channel(channel))
+
+        fs2.Stream.resource(channel.withEndpoints(e1, eRest*))
       }
-    }
-    .build
-
-  import langoustine.lsp.requests.LSPRequest
-
-  val definitionRequest = upickle.default.read[ujson.Value]("""
-{"position":{"character":7,"line":38},"textDocument":{"uri":"file:\/\/\/Users\/velvetbaldmime\/projects\/langoustine\/README.md"}}
-  """.trim)
-
-  val openRequest = upickle.default.read[ujson.Value]("""
-  {"textDocument":{"uri":"file:\/\/\/Users\/velvetbaldmime\/projects\/tree-sitter-scala\/grammar.js", "languageId": "javascript", "version": 0, "text": "hello"}}
-  """.trim)
-
-  def simulate[T <: LSPRequest](req: T, in: ujson.Value) =
-    val r = JSONRPC.request(1, req.requestMethod, in)
-
-    new JSONRPC.RequestMessage:
-      def method = req.requestMethod
-      def id     = 1
-      def params = in
-  end simulate
-
-  def simulateN[T <: LSPNotification](req: T, in: ujson.Value) =
-    new JSONRPC.Notification:
-      def method = req.notificationMethod
-      def params = in
-
-  for
-    open <- server(simulateN(nt.textDocument.didOpen, openRequest))
-    definition <- server(simulate(textDocument.definition, definitionRequest))
-    _ = console.log(definition)
-  do ()
-
-end hello
+      .evalMap(_ => IO.never)
+      .compile
+      .drain
+  end run
+end GrammarJSServer

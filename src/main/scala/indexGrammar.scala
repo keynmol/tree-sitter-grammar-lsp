@@ -3,6 +3,7 @@ package grammarsy
 import typings.acorn.mod.*
 import typings.acorn.mod.Options
 import typings.acorn.mod.ecmaVersion
+import langoustine.lsp.RuntimeBase.DocumentUri
 
 def processReduction(n: Node): Reductions =
   var red = Reductions.of(None)
@@ -20,7 +21,7 @@ def processReduction(n: Node): Reductions =
   red
 end processReduction
 
-def findReductions(objectExpr: ObjectExpression) =
+def findReductions(objectExpr: ObjectExpression): Map[Rule, Reductions] =
   val props = objectExpr.properties.flatMap(_.as(Property))
   val rules = props
     .find(_.key.as(Identifier).exists(_.name == "rules"))
@@ -31,7 +32,7 @@ def findReductions(objectExpr: ObjectExpression) =
   def isGrammarThing(af: ArrowFunctionExpression): Boolean =
     af.params.headOption.flatMap(_.as(Identifier)).exists(_.name == "$")
 
-  val reductions = rules.map { prop =>
+  rules.map { prop =>
     val ruleName = prop.key.as(Identifier).get.name
     val rule     = Rule(ruleName, Pos.of(prop.node))
 
@@ -44,12 +45,9 @@ def findReductions(objectExpr: ObjectExpression) =
 
     rule -> reductions
   }.toMap
-
-  Grammar(reductions)
-
 end findReductions
 
-def indexGrammar(input: String): Grammar =
+def indexGrammar(input: String, location: DocumentUri): Grammar =
   import typings.acorn.acornRequire
   acornRequire
 
@@ -64,7 +62,7 @@ def indexGrammar(input: String): Grammar =
           ce.arguments.headOption
             .flatMap(_.as(ObjectExpression))
             .foreach { oe =>
-              gram = Some(findReductions(oe))
+              gram = Some(Grammar(findReductions(oe), TextIndex.of(input), location))
             }
       }
   )
