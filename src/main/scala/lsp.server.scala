@@ -2,7 +2,7 @@ package grammarsy
 
 import langoustine.lsp.*
 import cats.effect.IO
-import jsonrpclib.fs2interop.*
+import jsonrpclib.fs2.*
 
 import structures.*
 import json.*

@@ -7,7 +7,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import cats.effect.IO
 import cats.effect.IOApp
 
-import jsonrpclib.fs2interop.*
+import jsonrpclib.fs2.*
 
 object GrammarJSServer extends IOApp.Simple:
   def run =
