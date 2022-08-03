@@ -19,7 +19,6 @@ def server(implicit ec: ExecutionContext) =
     .create[IO]
     .handleRequest(initialize) { (in, back) =>
       IO {
-        println("yo")
         InitializeResult(
           ServerCapabilities(
             hoverProvider = Opt(true),
