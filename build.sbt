@@ -14,7 +14,36 @@ scalaJSLinkerConfig ~= { conf =>
   conf.withModuleKind(ModuleKind.CommonJSModule)
 }
 
+name := "grammar-js-lsp"
+
 scalaJSUseMainModuleInitializer := true
+
+lazy val buildRelease = taskKey[Unit]("")
+buildRelease := {
+  val base = (ThisBuild / baseDirectory).value
+  val loc = (Compile / fullLinkJS / scalaJSLinkerOutputDirectory).value
+  val bin = base / "bin"
+
+  IO.createDirectory(bin)
+
+  val r = (Compile / fullLinkJS).value
+
+  IO.copyFile(loc / "main.js", bin / "grammar-js-lsp.js")
+}
+
+lazy val buildDev = taskKey[Unit]("")
+buildDev := {
+  val base = (ThisBuild / baseDirectory).value
+  val loc = (Compile / fastLinkJS / scalaJSLinkerOutputDirectory).value
+  val bin = base / "bin"
+
+  IO.createDirectory(bin)
+
+  val r = (Compile / fastLinkJS).value
+
+  IO.copyFile(loc / "main.js", bin / "grammar-js-lsp-dev.js")
+}
+
 
 stMinimize      := Selection.AllExcept("acorn")
 stUseScalaJsDom := false
