@@ -15,9 +15,9 @@ object GrammarJSServer extends IOApp.Simple:
       .lspCompliant[IO](
         byteStream = fs2.io.stdin[IO],
         byteSink = fs2.io.stdout[IO],
-        startingEndpoints = Nil
       )
       .evalMap(server.bind)
+      .flatMap(_.openStream)
       .evalMap(_ => IO.never)
       .compile
       .drain

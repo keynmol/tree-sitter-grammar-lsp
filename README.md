@@ -1,6 +1,15 @@
 # grammar.js LSP
 
-Specialised LSP to edit one file and one file only - `grammar.js` used to specify Tree sitter grammar
+Specialised LSP to edit one file and one file only - `grammar.js` used to specify Tree sitter grammar.
+
+Made using [Langoustine](https://github.com/neandertech/langoustine) 
+and [Jsonrpclib](https://github.com/neandertech/jsonrpclib).
+
+[Scala 3](https://docs.scala-lang.org/scala3/book/introduction.html#), 
+[Scala.js](https://www.scala-js.org), 
+[ScalablyTyped](https://scalablytyped.org/docs/readme.html),
+[Cats-effect 3](https://typelevel.org/cats-effect/),
+[FS2](https://fs2.io/#/)
 
 ![2022-08-03 15 39 29](https://user-images.githubusercontent.com/1052965/182636739-3f63349b-2336-4afa-8fc9-767b392df25b.gif)
 

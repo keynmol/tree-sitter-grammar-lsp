@@ -8,14 +8,13 @@ import structures.*
 import json.*
 import requests.*
 import aliases.*
-import notifications as nt
 import io.scalajs.nodejs.fs.*
 
 import scala.concurrent.ExecutionContext
 
 def server(implicit ec: ExecutionContext) =
   val state = State.create()
-  ImmutableLSPBuilder
+  LSPBuilder
     .create[IO]
     .handleRequest(initialize) { (in, back) =>
       IO {
@@ -38,7 +37,7 @@ def server(implicit ec: ExecutionContext) =
         )
       }
     }
-    .handleNotification(nt.textDocument.didOpen) { in =>
+    .handleNotification(textDocument.didOpen) { (in, _) =>
       val path = in.textDocument.uri.value.drop("file://".length)
       IO.fromFuture {
         IO {
@@ -48,7 +47,7 @@ def server(implicit ec: ExecutionContext) =
         }
       }
     }
-    .handleNotification(nt.textDocument.didSave) { in =>
+    .handleNotification(textDocument.didSave) { (in, _) =>
       val path = in.textDocument.uri.value.drop("file://".length)
       IO.fromFuture {
         IO {
@@ -60,10 +59,10 @@ def server(implicit ec: ExecutionContext) =
     }
     .handleRequest(textDocument.documentSymbol) { (in, back) =>
       back.notification(
-        nt.window.showMessage,
+        window.showMessage,
         ShowMessageParams(
           enumerations.MessageType.Error,
-          "Hello from langoustine!"
+          "Hello from langoustine (all new)!"
         )
       ) *>
         IO {
