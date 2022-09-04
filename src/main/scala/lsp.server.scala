@@ -55,25 +55,18 @@ def server(implicit ec: ExecutionContext) =
       }
     }
     .handleRequest(textDocument.documentSymbol) { (in, back) =>
-      back.notification(
-        window.showMessage,
-        ShowMessageParams(
-          MessageType.Error,
-          "Hello from langoustine (all new)!"
-        )
-      ) *>
-        IO {
-          Opt {
-            state.rules.toOption.toVector.flatten.map {
-              case (ruleName, location) =>
-                SymbolInformation(
-                  location = location,
-                  name = ruleName,
-                  kind = SymbolKind.Field
-                )
-            }
+      IO {
+        Opt {
+          state.rules.toOption.toVector.flatten.map {
+            case (ruleName, location) =>
+              SymbolInformation(
+                location = location,
+                name = ruleName,
+                kind = SymbolKind.Field
+              )
           }
         }
+      }
     }
     .handleRequest(textDocument.definition) { (in, back) =>
       IO {
