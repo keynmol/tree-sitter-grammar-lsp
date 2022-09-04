@@ -1,13 +1,10 @@
 package grammarsy
 
-import langoustine.lsp.*
+import langoustine.lsp.all.*
+import langoustine.lsp.LSPBuilder
 import cats.effect.IO
 import jsonrpclib.fs2.*
 
-import structures.*
-import json.*
-import requests.*
-import aliases.*
 import io.scalajs.nodejs.fs.*
 
 import scala.concurrent.ExecutionContext
@@ -61,18 +58,20 @@ def server(implicit ec: ExecutionContext) =
       back.notification(
         window.showMessage,
         ShowMessageParams(
-          enumerations.MessageType.Error,
+          MessageType.Error,
           "Hello from langoustine (all new)!"
         )
       ) *>
         IO {
-          state.rules.toOption.toVector.flatten.map {
-            case (ruleName, location) =>
-              SymbolInformation(
-                location = location,
-                name = ruleName,
-                kind = enumerations.SymbolKind.Field
-              )
+          Opt {
+            state.rules.toOption.toVector.flatten.map {
+              case (ruleName, location) =>
+                SymbolInformation(
+                  location = location,
+                  name = ruleName,
+                  kind = SymbolKind.Field
+                )
+            }
           }
         }
     }
@@ -81,8 +80,8 @@ def server(implicit ec: ExecutionContext) =
         val loc = state.ruleDefinition(in.position).toOption.flatten
 
         loc match
-          case None                => Definition(Vector.empty)
-          case Some((ruleName, v)) => Definition(v)
+          case None                => Opt.empty
+          case Some((ruleName, v)) => Opt(Definition(v))
       }
     }
     .handleRequest(textDocument.hover) { (in, back) =>
@@ -90,9 +89,9 @@ def server(implicit ec: ExecutionContext) =
         val loc = state.ruleHover(in.position).toOption.flatten
 
         loc match
-          case None => Nullable.NULL
+          case None => Opt.empty
           case Some((ruleName, contents)) =>
-            Nullable {
+            Opt {
               Hover(contents =
                 Vector(
                   MarkedString(s"Reduction `$ruleName`"),

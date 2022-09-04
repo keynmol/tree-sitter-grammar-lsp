@@ -3,7 +3,7 @@ package grammarsy
 import typings.acorn.mod.*
 import typings.acorn.mod.Options
 import typings.acorn.mod.ecmaVersion
-import langoustine.lsp.RuntimeBase.DocumentUri
+import langoustine.lsp.all.*
 
 def processReduction(n: Node): Reductions =
   var red = Reductions.of(None)
@@ -62,7 +62,8 @@ def indexGrammar(input: String, location: DocumentUri): Grammar =
           ce.arguments.headOption
             .flatMap(_.as(ObjectExpression))
             .foreach { oe =>
-              gram = Some(Grammar(findReductions(oe), TextIndex.of(input), location))
+              gram =
+                Some(Grammar(findReductions(oe), TextIndex.of(input), location))
             }
       }
   )

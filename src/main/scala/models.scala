@@ -1,9 +1,8 @@
 package grammarsy
 
 import typings.acorn.mod.Node
-import langoustine.lsp.RuntimeBase.DocumentUri
-import langoustine.lsp.structures.Position
-import langoustine.lsp.RuntimeBase.uinteger
+
+import langoustine.lsp.all.*
 
 case class Grammar(
     rules: Map[Rule, Reductions],
@@ -27,7 +26,7 @@ object Reductions:
   def of(o: Option[Mention]) = Reductions(o.toList)
 
 case class Loc(line: Int, char: Int):
-  def toPosition = Position(uinteger(line), uinteger(char))
+  def toPosition = Position(line, char)
 
 case class TextIndex(lines: Map[Int, String], back: Int => Option[Loc]):
 
