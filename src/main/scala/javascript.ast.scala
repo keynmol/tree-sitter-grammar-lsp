@@ -44,20 +44,16 @@ object MemberExpression
       dispatch[Node](n, "property")
 
 opaque type ArrayExpression = Node
-object ArrayExpression
-    extends TypeSafety[ArrayExpression]("ArrayExpression"):
+object ArrayExpression extends TypeSafety[ArrayExpression]("ArrayExpression"):
   extension (n: ArrayExpression)
     def elements =
       dispatchArr[Node](n, "elements")
 
-
 opaque type UnaryExpression = Node
-object UnaryExpression
-    extends TypeSafety[UnaryExpression]("UnaryExpression"):
+object UnaryExpression extends TypeSafety[UnaryExpression]("UnaryExpression"):
   extension (n: UnaryExpression)
     def argument =
       dispatch[Node](n, "argument")
-
 
 opaque type ArrowFunctionExpression = Node
 object ArrowFunctionExpression
@@ -68,7 +64,6 @@ object ArrowFunctionExpression
 
     def params =
       dispatchArr[Node](n, "params")
-
 
 opaque type CallExpression = Node
 object CallExpression extends TypeSafety[CallExpression]("CallExpression"):
@@ -127,14 +122,14 @@ extension (n: Node)
     t.test.unapply(n)
 
 sealed abstract class TypeSafety[T](name: String)(using e: T =:= Node):
-  inline def apply(n: Node): T  = n.asInstanceOf[T]
+  inline def apply(n: Node): T         = n.asInstanceOf[T]
   inline def asNode(inline t: T): Node = t.asInstanceOf[Node]
 
   extension (f: T)
-    def typeName = e.apply(f).`type`
-    def node     = asNode(f)
+    def typeName   = e.apply(f).`type`
+    def node       = asNode(f)
     def start: Int = asNode(f).start.toInt
-    def end: Int = asNode(f).end.toInt
+    def end: Int   = asNode(f).end.toInt
 
   inline protected def dispatch[A](pg: T, n: String) =
     pg.asInstanceOf[js.Dynamic]
