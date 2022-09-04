@@ -1,7 +1,6 @@
 package grammarsy
 
-import langoustine.lsp.structures.*
-import langoustine.lsp.RuntimeBase.DocumentUri
+import langoustine.lsp.all.*
 
 enum Result[+A]:
   case Get(a: A)

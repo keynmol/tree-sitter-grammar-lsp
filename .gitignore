@@ -3,3 +3,10 @@ out
 .bsp
 .scala-build
 node_modules
+.bloop
+project/.bloop
+project/project
+project/target
+project/metals.sbt
+bin
+target
