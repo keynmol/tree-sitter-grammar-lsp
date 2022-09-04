@@ -21,8 +21,8 @@ scalaJSUseMainModuleInitializer := true
 lazy val buildRelease = taskKey[Unit]("")
 buildRelease := {
   val base = (ThisBuild / baseDirectory).value
-  val loc  = (Compile / fullLinkJS / scalaJSLinkerOutputDirectory).value
-  val bin  = base / "bin"
+  val loc = (Compile / fullLinkJS / scalaJSLinkerOutputDirectory).value
+  val bin = base / "bin"
 
   IO.createDirectory(bin)
 
@@ -34,8 +34,8 @@ buildRelease := {
 lazy val buildDev = taskKey[Unit]("")
 buildDev := {
   val base = (ThisBuild / baseDirectory).value
-  val loc  = (Compile / fastLinkJS / scalaJSLinkerOutputDirectory).value
-  val bin  = base / "bin"
+  val loc = (Compile / fastLinkJS / scalaJSLinkerOutputDirectory).value
+  val bin = base / "bin"
 
   IO.createDirectory(bin)
 
@@ -44,11 +44,12 @@ buildDev := {
   IO.copyFile(loc / "main.js", bin / "grammar-js-lsp-dev.js")
 }
 
+
 stMinimize      := Selection.AllExcept("acorn")
 stUseScalaJsDom := false
 stStdlib        := List("es6")
 libraryDependencies += "net.exoego" %%% "scala-js-nodejs-v16" % "0.14.0" cross CrossVersion.for3Use2_13
 
-libraryDependencies += "tech.neander" %%% "jsonrpclib-fs2"  % "0.0.3"
+libraryDependencies += "tech.neander" %%% "jsonrpclib-fs2" % "0.0.2"
 libraryDependencies += "tech.neander" %%% "langoustine-lsp" % "0.0.7"
-libraryDependencies += "co.fs2"       %%% "fs2-io"          % "3.2.11"
+libraryDependencies += "co.fs2" %%% "fs2-io" % "3.2.11"
