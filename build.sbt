@@ -2,7 +2,7 @@ enablePlugins(ScalablyTypedConverterExternalNpmPlugin, ScalaJSPlugin)
 
 import scala.sys.process.Process
 
-scalaVersion := "3.1.3"
+scalaVersion := "3.2.0"
 
 externalNpm := {
   baseDirectory.value
