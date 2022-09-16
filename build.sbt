@@ -50,5 +50,5 @@ stStdlib        := List("es6")
 libraryDependencies += "net.exoego" %%% "scala-js-nodejs-v16" % "0.14.0" cross CrossVersion.for3Use2_13
 
 libraryDependencies += "tech.neander" %%% "jsonrpclib-fs2"  % "0.0.3"
-libraryDependencies += "tech.neander" %%% "langoustine-lsp" % "0.0.14"
+libraryDependencies += "tech.neander" %%% "langoustine-lsp" % "0.0.15"
 libraryDependencies += "co.fs2"       %%% "fs2-io"          % "3.2.14"
