@@ -8,13 +8,22 @@ import jsonrpclib.fs2.*
 import io.scalajs.nodejs.fs.*
 
 import scala.concurrent.ExecutionContext
+import scala.concurrent.Future
 
-def server(implicit ec: ExecutionContext) =
+def server(implicit ec: ExecutionContext): LSPBuilder[scala.concurrent.Future] =
   val state = State.create()
   LSPBuilder
-    .create[IO]
+    .create[Future]
     .handleRequest(initialize) { (in, back) =>
-      IO {
+      back.notification(
+        window.showMessage,
+        ShowMessageParams(
+          MessageType.Info,
+          "Hello from Langoustine running with Futures!"
+        )
+      )
+
+      Future {
         InitializeResult(
           ServerCapabilities(
             hoverProvider = Opt(true),
@@ -29,33 +38,33 @@ def server(implicit ec: ExecutionContext) =
           ),
           Opt(
             InitializeResult
-              .ServerInfo(name = "grammarsy", version = Opt("0.0.1"))
+              .ServerInfo(name = "grammarsy (running on Future)", version = Opt("0.0.1"))
           )
         )
       }
     }
     .handleNotification(textDocument.didOpen) { (in, _) =>
       val path = in.textDocument.uri.value.drop("file://".length)
-      IO.fromFuture {
-        IO {
-          Fs.readFileFuture(path, "utf8").map { case str: String =>
-            state.index(str, in.textDocument.uri)
-          }
-        }
+      Fs.readFileFuture(path, "utf8").map { case str: String =>
+        state.index(str, in.textDocument.uri)
       }
     }
     .handleNotification(textDocument.didSave) { (in, _) =>
       val path = in.textDocument.uri.value.drop("file://".length)
-      IO.fromFuture {
-        IO {
-          Fs.readFileFuture(path, "utf8").map { case str: String =>
-            state.index(str, in.textDocument.uri)
-          }
-        }
+      Fs.readFileFuture(path, "utf8").map { case str: String =>
+        state.index(str, in.textDocument.uri)
       }
     }
     .handleRequest(textDocument.documentSymbol) { (in, back) =>
-      IO {
+      back.notification(
+        window.showMessage,
+        ShowMessageParams(
+          MessageType.Info,
+          "Hello from Langoustine running with Futures!"
+        )
+      )
+
+      Future {
         Opt {
           state.rules.toOption.toVector.flatten.map {
             case (ruleName, location) =>
@@ -69,7 +78,7 @@ def server(implicit ec: ExecutionContext) =
       }
     }
     .handleRequest(textDocument.definition) { (in, back) =>
-      IO {
+      Future {
         val loc = state.ruleDefinition(in.position).toOption.flatten
 
         loc match
@@ -78,7 +87,7 @@ def server(implicit ec: ExecutionContext) =
       }
     }
     .handleRequest(textDocument.hover) { (in, back) =>
-      IO {
+      Future {
         val loc = state.ruleHover(in.position).toOption.flatten
 
         loc match
