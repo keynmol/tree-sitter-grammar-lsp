@@ -38,7 +38,10 @@ def server(implicit ec: ExecutionContext): LSPBuilder[scala.concurrent.Future] =
           ),
           Opt(
             InitializeResult
-              .ServerInfo(name = "grammarsy (running on Future)", version = Opt("0.0.1"))
+              .ServerInfo(
+                name = "grammarsy (running on Future)",
+                version = Opt("0.0.1")
+              )
           )
         )
       }
