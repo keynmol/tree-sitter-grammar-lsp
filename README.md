@@ -13,7 +13,12 @@ and [Jsonrpclib](https://github.com/neandertech/jsonrpclib).
 
 ![2022-08-03 15 39 29](https://user-images.githubusercontent.com/1052965/182636739-3f63349b-2336-4afa-8fc9-767b392df25b.gif)
 
+## Installation
+
 1. Grab a release from https://github.com/keynmol/tree-sitter-grammar-lsp/releases/ tab
+   
+   Alternatively, you can build it locally by running `sbt buildDev` - the binaries 
+   for all platforms will be put in the `/bin/` folder
 2. Configure your editor, here's the instructions for Neovim:
 
 Put this in your `init.lua`:
@@ -45,3 +50,15 @@ vim.api.nvim_create_autocmd({ "BufReadPost" }, {
   command = "set syntax=javascript"
 })
 ```
+
+## Contributing
+
+My recommendation is to point your LSP config to a locally checked out copy of 
+this repository, specifically at `<root>/bin/tree-sitter-grammar-lsp-dev-<your-platform>`.
+
+To produce that binary, you can run `sbt buildDev` - which will produce non-optimised
+JS version, and should be quicker to build iteratively.
+
+If you want to produce a binary with all the optimisations, run `sbt buildRelease`.
+
+Happy hacking!
