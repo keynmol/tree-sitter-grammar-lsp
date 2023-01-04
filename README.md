@@ -15,40 +15,43 @@ and [Jsonrpclib](https://github.com/neandertech/jsonrpclib).
 
 ## Installation
 
-1. Grab a release from https://github.com/keynmol/tree-sitter-grammar-lsp/releases/ tab
+1. Grab a release from the https://github.com/keynmol/tree-sitter-grammar-lsp/releases/ tab
    
    Alternatively, you can build it locally by running `sbt buildDev` - the binaries 
    for all platforms will be put in the `/bin/` folder
 2. Configure your editor, here's the instructions for Neovim:
 
-Put this in your `init.lua`:
+Ensure you have [nvim-lspconfig](https://github.com/neovim/nvim-lspconfig)
+installed, and then add this to your config:
 
 ```lua
-local lsp = vim.api.nvim_create_augroup("LSP", { clear = true })
+ vim.api.nvim_create_autocmd({ "BufRead", "BufNewFile" }, {
+    pattern = { "grammar.js" },
+    callback = function() vim.cmd("setfiletype tree-sitter-grammar") end
+  })
 
-vim.api.nvim_create_autocmd("FileType", {
-    group = lsp,
-    pattern = "tree-sitter-grammar",
-    callback = function()
-        local grammarjsLSP = 'FULL_PATH_TO_THE_BINARY'
-        local path = vim.fs.find({ "grammar.js" })
-        vim.lsp.start({
-            name = "tree-sitter-grammar-lsp",
-            cmd = { grammarjsLSP },
-            root_dir = vim.fs.dirname(path[1])
-        })
-    end,
-})
+  vim.api.nvim_create_autocmd({ "BufReadPost" }, {
+    pattern = { "grammar.js" },
+    command = "set syntax=javascript"
+  })
 
-vim.api.nvim_create_autocmd({ "BufRead", "BufNewFile" }, {
-  pattern = { "grammar.js" },
-  callback = function() vim.cmd("setfiletype tree-sitter-grammar") end
-})
+  local configs = require("lspconfig.configs")
+  local util = require("lspconfig.util")
+  configs.tree_sitter_grammar_lsp = {
+    default_config = {
+      cmd = { "tree-sitter-grammar-lsp-<your-os>" }, -- update to match your local installation location
+      filetypes = { "tree-sitter-grammar" },
+      root_dir = util.path.dirname
+    }
+  }
+```
 
-vim.api.nvim_create_autocmd({ "BufReadPost" }, {
-  pattern = { "grammar.js" },
-  command = "set syntax=javascript"
-})
+Then you're able to call setup just like any other server you may be using from
+`nvim-lspconfig`.
+
+```lua
+local configs = require("lspconfig")
+configs.tree_sitter_grammar_lsp.setup({})
 ```
 
 ## Contributing
