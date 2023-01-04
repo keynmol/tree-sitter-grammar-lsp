@@ -1,6 +1,6 @@
-# grammar.js LSP
+# Tree Sitter Grammar.js LSP
 
-Specialised LSP to edit one file and one file only - `grammar.js` used to specify Tree sitter grammar.
+Specialised LSP to edit one file and one file only - `grammar.js` used to specify Tree sitter grammars.
 
 Made using [Langoustine](https://github.com/neandertech/langoustine) 
 and [Jsonrpclib](https://github.com/neandertech/jsonrpclib).
@@ -13,7 +13,12 @@ and [Jsonrpclib](https://github.com/neandertech/jsonrpclib).
 
 ![2022-08-03 15 39 29](https://user-images.githubusercontent.com/1052965/182636739-3f63349b-2336-4afa-8fc9-767b392df25b.gif)
 
-1. Grab a release from https://github.com/keynmol/grammar-js-lsp/releases/ tab
+## Installation
+
+1. Grab a release from https://github.com/keynmol/tree-sitter-grammar-lsp/releases/ tab
+   
+   Alternatively, you can build it locally by running `sbt buildDev` - the binaries 
+   for all platforms will be put in the `/bin/` folder
 2. Configure your editor, here's the instructions for Neovim:
 
 Put this in your `init.lua`:
@@ -28,7 +33,7 @@ vim.api.nvim_create_autocmd("FileType", {
         local grammarjsLSP = 'FULL_PATH_TO_THE_BINARY'
         local path = vim.fs.find({ "grammar.js" })
         vim.lsp.start({
-            name = "grammarsy",
+            name = "tree-sitter-grammar-lsp",
             cmd = { grammarjsLSP },
             root_dir = vim.fs.dirname(path[1])
         })
@@ -45,3 +50,15 @@ vim.api.nvim_create_autocmd({ "BufReadPost" }, {
   command = "set syntax=javascript"
 })
 ```
+
+## Contributing
+
+My recommendation is to point your LSP config to a locally checked out copy of 
+this repository, specifically at `<root>/bin/tree-sitter-grammar-lsp-dev-<your-platform>`.
+
+To produce that binary, you can run `sbt buildDev` - which will produce non-optimised
+JS version, and should be quicker to build iteratively.
+
+If you want to produce a binary with all the optimisations, run `sbt buildRelease`.
+
+Happy hacking!

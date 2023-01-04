@@ -14,34 +14,48 @@ scalaJSLinkerConfig ~= { conf =>
   conf.withModuleKind(ModuleKind.CommonJSModule)
 }
 
-name := "grammar-js-lsp"
+val BinaryName = "tree-sitter-grammar-lsp"
+
+name := BinaryName
 
 scalaJSUseMainModuleInitializer := true
 
+import sys.process.*
+
+lazy val npmInstall = taskKey[Unit]("")
+npmInstall := {
+  "npm install".!!
+}
+
 lazy val buildRelease = taskKey[Unit]("")
 buildRelease := {
-  val base = (ThisBuild / baseDirectory).value
-  val loc  = (Compile / fullLinkJS / scalaJSLinkerOutputDirectory).value
-  val bin  = base / "bin"
-
-  IO.createDirectory(bin)
-
-  val r = (Compile / fullLinkJS).value
-
-  IO.copyFile(loc / "main.js", bin / "grammar-js-lsp.js")
+  build(
+    (ThisBuild / baseDirectory).value,
+    (Compile / fullLinkJSOutput).value,
+    s"$BinaryName.js"
+  )
 }
 
 lazy val buildDev = taskKey[Unit]("")
 buildDev := {
-  val base = (ThisBuild / baseDirectory).value
-  val loc  = (Compile / fastLinkJS / scalaJSLinkerOutputDirectory).value
-  val bin  = base / "bin"
+  build(
+    (ThisBuild / baseDirectory).value,
+    (Compile / fastLinkJSOutput).value,
+    s"$BinaryName-dev.js"
+  )
+}
+
+def build(base: File, sjs: File, name: String) = {
+
+  val bin = base / "bin"
 
   IO.createDirectory(bin)
+  val jsPath = bin / name
 
-  val r = (Compile / fastLinkJS).value
+  IO.copyFile(sjs / "main.js", jsPath)
 
-  IO.copyFile(loc / "main.js", bin / "grammar-js-lsp-dev.js")
+  "npm install".!!
+  Process(Seq("npm", "exec", "-c", s"pkg $jsPath --out-path $bin")).!!
 }
 
 stMinimize      := Selection.AllExcept("acorn")
