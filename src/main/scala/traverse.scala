@@ -1,4 +1,4 @@
-package grammarsy
+package treesitter.lsp
 
 import io.scalajs.nodejs.console_module.Console as console
 import typings.acorn.mod.Node

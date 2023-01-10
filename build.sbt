@@ -62,5 +62,8 @@ stMinimize      := Selection.AllExcept("acorn")
 stUseScalaJsDom := false
 stStdlib        := List("es6")
 libraryDependencies += "net.exoego" %%% "scala-js-nodejs-v16" % "0.14.0" cross CrossVersion.for3Use2_13
+libraryDependencies += "com.github.j-mie6" %%% "parsley" % "4.0.3"
 
-libraryDependencies += "tech.neander" %%% "langoustine-app" % "0.0.17"
+resolvers ++= Resolver.sonatypeOssRepos("snapshots")
+
+libraryDependencies += "tech.neander" %%% "langoustine-app" % "0.0.19+5-dc569a9e-SNAPSHOT"

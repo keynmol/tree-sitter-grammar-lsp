@@ -1,4 +1,4 @@
-package grammarsy
+package treesitter.lsp
 
 import typings.acorn.mod.Node
 

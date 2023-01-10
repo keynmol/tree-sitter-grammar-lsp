@@ -1,4 +1,4 @@
-package grammarsy
+package treesitter.lsp
 
 import langoustine.lsp.all.*
 import langoustine.lsp.LSPBuilder
@@ -9,9 +9,16 @@ import io.scalajs.nodejs.fs.*
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
+import java.net.URI
+import java.nio.file.Paths
 
 def server(implicit ec: ExecutionContext): LSPBuilder[scala.concurrent.Future] =
   val state = State.create()
+  scribe.Logger.root
+    .clearHandlers()
+    .withHandler(writer = scribe.writer.SystemErrWriter)
+    .replace()
+
   LSPBuilder
     .create[Future]
     .handleRequest(initialize) { (in, back) =>
@@ -19,7 +26,7 @@ def server(implicit ec: ExecutionContext): LSPBuilder[scala.concurrent.Future] =
         window.showMessage,
         ShowMessageParams(
           MessageType.Info,
-          "Hello from Langoustine running with Futures!"
+          "Welcome to Tree Sitter grammar LSP"
         )
       )
 
@@ -48,14 +55,17 @@ def server(implicit ec: ExecutionContext): LSPBuilder[scala.concurrent.Future] =
     }
     .handleNotification(textDocument.didOpen) { (in, _) =>
       val path = in.textDocument.uri.value.drop("file://".length)
+      
+      val p = Paths.get(in.textDocument.uri.value)
+      scribe.info(s"Opened $p")
       Fs.readFileFuture(path, "utf8").map { case str: String =>
-        state.index(str, in.textDocument.uri)
+        state.updateGrammar(str, in.textDocument.uri)
       }
     }
     .handleNotification(textDocument.didSave) { (in, _) =>
       val path = in.textDocument.uri.value.drop("file://".length)
       Fs.readFileFuture(path, "utf8").map { case str: String =>
-        state.index(str, in.textDocument.uri)
+        state.updateGrammar(str, in.textDocument.uri)
       }
     }
     .handleRequest(textDocument.documentSymbol) { (in, back) =>

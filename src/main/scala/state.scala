@@ -1,6 +1,7 @@
-package grammarsy
+package treesitter.lsp
 
 import langoustine.lsp.all.*
+import scala.util.Try
 
 enum Result[+A]:
   case Get(a: A)
@@ -11,7 +12,10 @@ enum Result[+A]:
       case NotReady => None
       case Get(a)   => Some(a)
 
-class State private (var state: Option[Grammar]):
+class State private (
+    private var grammar: Option[Grammar],
+    private var corpus: Option[Corpus]
+):
   def identifierAt(pos: Position): Result[Option[String]] =
     ifReady { grammar =>
       grammar.text.lines.get(pos.line.value).map { l =>
@@ -67,10 +71,15 @@ class State private (var state: Option[Grammar]):
     }
 
   def ifReady[A](f: Grammar => A): Result[A] =
-    state.map(f).map(Result.Get.apply).getOrElse(Result.NotReady)
+    grammar.map(f).map(Result.Get.apply).getOrElse(Result.NotReady)
 
-  def index(str: String, uri: DocumentUri) =
-    state = Some(indexGrammar(str, uri))
+  def updateGrammar(str: String, uri: DocumentUri): Either[String, Unit] =
+    Try {
+      synchronized {
+        grammar = Some(indexGrammar(str, uri))
+      }
+    }.toEither.left.map(_.getMessage)
+
 end State
 
 object State:
