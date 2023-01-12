@@ -1,48 +1,75 @@
 package treesitter.lsp
+package corpus
 
 import parsley.character.*
 import parsley.debug.*
 import parsley.combinator.*
 import parsley.Parsley
+import parsley.lift
+import parsley.implicits.lift.*
+import parsley.implicits.zipped.*
 
-enum LispNode:
-  case Leaf(name: String)
-  case Nest(title: String, nodes: List[LispNode])
+import langoustine.lsp.all.Range as LSP_Range
+import langoustine.lsp.structures.Position
+import langoustine.lsp.structures.Range
+
+enum LispNode[F[_]]:
+  case Leaf(name: F[String])
+  case Nest(title: F[String], nodes: List[LispNode[F]])
+
+case class WithSpan[A](span: LSP_Range, value: A)
+
+extension [A](p: Parsley[A])
+  def wsp = p <* whitespaces
+  def withSpan: Parsley[WithSpan[A]] =
+    val pos: Parsley[Position] =
+      Parsley.pos.map(Position.apply)
+
+    (
+      pos,
+      p,
+      pos
+    ).zipped((start, value, end) => WithSpan(Range(start, end), value))
+  end withSpan
+end extension
 
 object LispNode:
-  export parsers.parser
+  export parsers.fully as parser
+
+  def apply[F[_]](nm: F[String], subnodes: List[LispNode[F]]) =
+    subnodes match
+      case head :: next => LispNode.Nest(nm, subnodes)
+      case Nil          => LispNode.Leaf(nm)
 
   private object parsers:
-    def constructNode(nm: String, subnodes: List[LispNode]) =
-      subnodes match
-        case head :: next => LispNode.Nest(nm, subnodes)
-        case Nil          => LispNode.Leaf(nm)
+    val nodeName: Parsley[WithSpan[String]] = stringOfSome(
+      letterOrDigit <|> char('_')
+    ).withSpan.debug("nodeName")
 
-    val nodeName = some(letter <|> char('_')).map(_.mkString)
+    lazy val innerParser: Parsley[List[LispNode[WithSpan]]] =
+      val rec = many(parser.wsp).debug("rec")
 
-    extension [A](p: => Parsley[A]) def wsp = p <* whitespaces
+      val simple = nodeName.wsp
+        .map(LispNode.Leaf(_))
+        .map(List(_))
+        .debug("simple")
 
-    lazy val parser: parsley.Parsley[LispNode] = (
+      simple | rec
+    end innerParser
+
+    lazy val parser: parsley.Parsley[LispNode[WithSpan]] =
       char('(') *>
-        (nodeName.wsp <~> {
+        (nodeName.wsp, innerParser).zipped(apply) <*
+        char(')')
 
-          val rec = many(parser)
+    lazy val fully = parser.wsp
 
-          val simple = nodeName
-            .map(LispNode.Leaf(_))
-            .map(List(_))
-
-          simple | rec
-
-        }).map(constructNode) <*
-        char(')').wsp
-    )
   end parsers
 end LispNode
 
-case class TextCase(title: String, code: String, expected: LispNode)
+case class TextCase[F[_]](title: F[String], code: String, expected: LispNode[WithSpan])
 object TextCase:
-  export parsers.{textcase as parser, emptyLines}
+  export parsers.textcase as parser
 
   private object parsers:
     val titleSeparator = someUntil(char('='), endOfLine).void
@@ -52,36 +79,24 @@ object TextCase:
 
     val title = sepEndBy1(titleLine, endOfLine).map(_.mkString("\n"))
 
-    val header =
-      titleSeparator *> title <* titleSeparator
+    val header: Parsley[String] =
+      titleSeparator *> title <* titleSeparator <* newline
 
-    val codeLine = (noneOf('-') <::> many(satisfy(_ != '\n')))
-      .map(_.mkString)
-
-    val code = sepEndBy(codeLine.debug("code line"), some(endOfLine))
-      .map(_.mkString("\n"))
-
-    val codeSeparator = string("---") *> manyUntil(char('-'), endOfLine)
-
-    val emptyLines =
-      sepEndBy1(many(manyUntil(whitespace, endOfLine).void), endOfLine).void
+    val codeLine = ((many(satisfy(isSpace)) *> noneOf('-')) <::> someUntil(item, endOfLine)).map(_.mkString).debug("code line")
+    val code = 
+      many(codeLine).map(_.mkString("\n")) <* string("---").wsp
 
     val textcase =
-      ((header <*
-        emptyLines) <~>
-        (code <*
-          emptyLines <*
-          codeSeparator) <~>
-        (emptyLines *> LispNode.parser)).map { case ((title, code), node) =>
-        TextCase(title, code, node)
-      }
+      (header.withSpan.wsp.debug("header"), code.debug("code"), LispNode.parser)
+        .zipped(TextCase.apply)
+
   end parsers
 end TextCase
 
-case class CorpusFile(cases: List[TextCase])
+case class CorpusFile(cases: List[TextCase[WithSpan]])
 
 object CorpusFile:
   val parser =
-    sepEndBy(TextCase.parser, TextCase.emptyLines).map(CorpusFile.apply) <* eof
+    manyUntil(TextCase.parser.debug("Textcase parser"), eof.debug("end of file")).map(CorpusFile.apply)
 
-case class Corpus(items: Map[langoustine.lsp.all.DocumentUri, CorpusFile])
+case class Corpus(items: Map[DocumentPath, CorpusFile])
