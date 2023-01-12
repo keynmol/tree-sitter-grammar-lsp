@@ -31,7 +31,7 @@ jobs:
 
       - name: Build
         run: |
-          npm install
+          sbt --client test 
           sbt --client buildRelease
 
       - name: Upload binaries
