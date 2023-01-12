@@ -1,7 +1,11 @@
 package treesitter.lsp
 
+import corpus.*
+
 import langoustine.lsp.all.*
 import scala.util.Try
+import parsley.Success
+import parsley.Failure
 
 enum Result[+A]:
   case Get(a: A)
@@ -14,7 +18,8 @@ enum Result[+A]:
 
 class State private (
     private var grammar: Option[Grammar],
-    private var corpus: Option[Corpus]
+    private var corpus: Corpus,
+    private var root: Option[DocumentPath]
 ):
   def identifierAt(pos: Position): Result[Option[String]] =
     ifReady { grammar =>
@@ -39,7 +44,7 @@ class State private (
             locStart <- grammar.text.back(rule.position.start)
             locEnd   <- grammar.text.back(rule.position.end)
           yield rule.name -> Location(
-            grammar.location,
+            grammar.location.uri,
             Range(locStart.toPosition, locEnd.toPosition)
           )
         }
@@ -55,7 +60,7 @@ class State private (
         locStart <- grammar.text.back(r.position.start)
         locEnd   <- grammar.text.back(r.position.end)
       yield r.name -> Location(
-        grammar.location,
+        grammar.location.uri,
         Range(locStart.toPosition, locEnd.toPosition)
       )
     }
@@ -73,6 +78,11 @@ class State private (
   def ifReady[A](f: Grammar => A): Result[A] =
     grammar.map(f).map(Result.Get.apply).getOrElse(Result.NotReady)
 
+  def indexCorpusFile(str: String, path: DocumentPath) =
+    CorpusFile.parser.parse(str).toEither.map { cf =>
+      synchronized { corpus = corpus.copy(corpus.items.updated(path, cf)) }
+    }
+
   def updateGrammar(str: String, uri: DocumentUri): Either[String, Unit] =
     Try {
       synchronized {
@@ -80,8 +90,14 @@ class State private (
       }
     }.toEither.left.map(_.getMessage)
 
+  def setRoot(path: DocumentPath): Unit =
+    synchronized { root = Some(path) }
+
+  def getRoot: Option[DocumentPath] = root
+  def getCorpus = corpus
+
 end State
 
 object State:
   def create() =
-    new State(None)
+    new State(None, Corpus(Map.empty), None)

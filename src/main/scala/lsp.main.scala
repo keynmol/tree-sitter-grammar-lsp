@@ -6,3 +6,5 @@ import scala.concurrent.Future
 
 object GrammarJSServer extends LangoustineApp.FromFuture.Simple:
   def server = Future { treesitter.lsp.server }
+
+import io.scalajs.nodejs.fs.*
