@@ -17,36 +17,33 @@ def matches[A](x: A)(
   if f.isDefinedAt(x) then f(x)
   else Expectations.Helpers.failure("Pattern did not match, got: " + A.show(x))
 
-object CorpusTest extends weaver.SimpleIOSuite:
-  def dodgyTest(name: TestName)(f: => Expectations) =
-    test(name) {
-      IO(f)//.timeout(1.second)
-    }
+object CorpusTest extends weaver.FunSuite:
+  test("lisp node only") {
+    def parsed(t: String) =
+      LispNode.parser.parse(t).toEither
 
-  // dodgyTest("lisp node only") {
-  //   def parsed(t: String) =
-  //     LispNode.parser.parse(t).toEither
+    expect.all(
+      parsed("(test (a b) )").isRight,
+      parsed("(test (a\n b) \n)").isRight,
+      parsed("(test    \n(a\n     b) \n)").isRight,
+      parsed("""
+       |(compilation_unit
+       |  (a b)
+       |  (test (c a)))""".trim.stripMargin).isRight,
+      parsed("(test a)").isRight
+    ) &&
+    expect.all(
+      parsed("(test   (a b").isLeft,
+      parsed("(!test   (a b))").isLeft,
+      parsed("a b").isLeft,
+      parsed("(a").isLeft
+    )
 
-  //   expect.all(
-  //     parsed("(test (a b) )").isRight,
-  //     parsed("(test (a\n b) \n)").isRight,
-  //     parsed("(test    \n(a\n     b) \n)").isRight,
-  //     parsed("""
-  //      |(compilation_unit
-  //      |  (a b) 
-  //      |  (test (c a)))""".trim.stripMargin).isRight,
-  //     parsed("(test a)").isRight
-  //   ) &&
-  //   expect.all(
-  //     parsed("(test   (a b").isLeft,
-  //     parsed("(!test   (a b))").isLeft,
-  //     parsed("a b").isLeft,
-  //     parsed("(a").isLeft
-  //   )
+  }
 
-  // }
+  type Id[A] = A
 
-  dodgyTest("Entire test case") {
+  test("Entire test case") {
     val text =
       """
        |=======================================
@@ -64,71 +61,77 @@ object CorpusTest extends weaver.SimpleIOSuite:
        |  (test (c a)))
         """.trim.stripMargin
 
-    println(TextCase.parser.parse(text))
-
     matches(CorpusFile.parser.parse(text).toEither) { case Right(result) =>
       matches(result.cases.headOption) { case Some(tc) =>
-        expect.same(tc.title, "Identifiers") &&
+        expect.same(tc.title.value, "Identifiers") &&
         expect.same(
-          tc.code.linesIterator.map(_.stripTrailing()).toList,
+          tc.code.linesIterator
+            .map(_.stripTrailing())
+            .toList
+            .filter(_.nonEmpty),
           List(
             "inline def m =",
             "  var hello = 1",
             "def test = 1"
           )
         ) &&
-        expect.same(
-          tc.expected,
-          Nest(
-            "compilation_unit",
-            List(
-              Nest("a", List(Leaf("b"))),
-              Nest("test", List(Nest("c", List(Leaf("a")))))
+        expect(
+          tc.expected.mapK[Id]([A] => (ws: WithSpan[A]) => ws.value) ==
+            Nest(
+              "compilation_unit",
+              List(
+                Nest("a", List(Leaf("b"))),
+                Nest("test", List(Nest("c", List(Leaf("a")))))
+              )
             )
-          )
         )
       }
 
     }
   }
 
-  // dodgyTest("Multiple test cases") {
-  //   val N = 5
-  //   def code(n: Int) = s"""
-  //       |def code = $n
-  //       |object Obj$n{
-  //       |  val state = $n
-  //       |}""".trim.stripMargin
+  test("Multiple test cases") {
+    val N = 5
+    def code(n: Int) = s"""
+        |def code = $n
+        |object Obj$n{
+        |  val state = $n
+        |}""".trim.stripMargin
 
-  //   val text = List
-  //     .tabulate(N) { n =>
-  //       s"""
-  //       |=======================================
-  //       |Case $n
-  //       |=======================================
-  //       |
-  //       |${code(n)}
-  //       |
-  //       |---
-  //       |
-  //       |(compilation_unit
-  //       |  (test$n a)
-  //       |)
-  //       """.trim.stripMargin
-  //     }
-  //     .mkString("\n\n")
+    val text = List
+      .tabulate(N) { n =>
+        s"""
+        |=======================================
+        |Case $n
+        |=======================================
+        |
+        |${code(n)}
+        |
+        |---
+        |
+        |(compilation_unit
+        |  (test$n a)
+        |)
+        """.trim.stripMargin
+      }
+      .mkString("\n\n")
 
-  //   matches(CorpusFile.parser.parse(text).toEither) {
-  //     case Right(CorpusFile(cases)) =>
-  //       expect.same(cases.map(_.title), List.tabulate(N)(n => s"Case $n")) &&
-  //       expect.same(
-  //         cases.map(_.expected),
-  //         List.tabulate(N)(n =>
-  //           Nest("compilation_unit", Nest(s"test$n", Leaf("a") :: Nil) :: Nil)
-  //         )
-  //       ) &&
-  //       expect.same(cases.map(_.code), List.tabulate(N)(code))
+    matches(CorpusFile.parser.parse(text).toEither) {
+      case Right(CorpusFile(cases)) =>
+        expect.same(
+          cases.map(_.title.value),
+          List.tabulate(N)(n => s"Case $n")
+        ) &&
+        expect.same(
+          cases.map(_.expected.withoutSpans),
+          List.tabulate(N)(n =>
+            Nest("compilation_unit", Nest(s"test$n", Leaf("a") :: Nil) :: Nil)
+          )
+        ) &&
+        forEach(cases.map(_.code).zipWithIndex) { case (cd, i) =>
+          expect.same(cd.trim, code(i))
+        }
 
-  //   }
-  // }
+    }
+  }
 end CorpusTest
