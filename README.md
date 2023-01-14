@@ -26,7 +26,7 @@ installed, and then add this to your config:
 
 ```lua
  vim.api.nvim_create_autocmd({ "BufRead", "BufNewFile" }, {
-    pattern = { "grammar.js" },
+    pattern = { "grammar.js", "*/corpus/*.txt" },
     callback = function() vim.cmd("setfiletype tree-sitter-grammar") end
   })
 
