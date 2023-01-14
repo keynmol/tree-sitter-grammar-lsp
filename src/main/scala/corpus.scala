@@ -12,8 +12,13 @@ import parsley.implicits.zipped.*
 import langoustine.lsp.all.Range as LSP_Range
 import langoustine.lsp.structures.Position
 import langoustine.lsp.structures.Range
+import scala.annotation.tailrec
 
 inline val DEBUG = false
+
+extension [A](p: Parsley[A])
+  inline def debugAs(inline name: String) =
+    inline if DEBUG then p.debug(name) else p
 
 enum LispNode[F[_]]:
   case Leaf(name: F[String])
@@ -24,17 +29,33 @@ enum LispNode[F[_]]:
       case Leaf(name)         => Leaf(f(name))
       case Nest(title, nodes) => Nest(f(title), nodes.map(_.mapK(f)))
 
-case class WithSpan[A](span: LSP_Range, value: A)
+  def foreach(f: LispNode[F] => Unit) =
+    @tailrec()
+    def go(nodes: List[LispNode[F]]): Unit =
+      nodes match
+        case Nil =>
+        case h :: next =>
+          h match
+            case Leaf(name) =>
+              f(h)
+              go(next)
 
-extension [A](p: Parsley[A])
-  inline def debugAs(inline name: String) =
-    inline if DEBUG then p.debug(name) else p
+            case Nest(title, rest) =>
+              f(h)
+              go(next ++ rest)
+    end go
+
+    go(List(this))
+  end foreach
+end LispNode
+
+case class WithSpan[A](span: LSP_Range, value: A)
 
 extension [A](p: Parsley[A])
   def wsp = p <* whitespaces
   def withSpan: Parsley[WithSpan[A]] =
     val pos: Parsley[Position] =
-      Parsley.pos.map(Position.apply)
+      Parsley.pos.map((line, col) => Position(line - 1, col - 1))
 
     (
       pos,
@@ -97,10 +118,10 @@ object TextCase:
     val titleLine =
       (noneOf('=') <::> someUntil(item, endOfLine)).map(_.mkString)
 
-    val title = sepEndBy1(titleLine, endOfLine).map(_.mkString("\n"))
+    val title = manyUntil(item, endOfLine).map(_.mkString)
 
-    val header: Parsley[String] =
-      titleSeparator *> title <* titleSeparator <* newline
+    val header: Parsley[WithSpan[String]] =
+      titleSeparator *> title.withSpan <* titleSeparator <* newline
 
     val codeLine =
       ((many(satisfy(isSpace)) *> noneOf('-')) <::> someUntil(item, endOfLine))
@@ -108,11 +129,11 @@ object TextCase:
         .debugAs("code line")
 
     val code =
-      manyUntil(item, string("---") <* newline).map(_.mkString)
+      manyUntil(item, Parsley.attempt(string("---") <* newline)).map(_.mkString)
 
     val textcase =
       (
-        header.withSpan.wsp.debugAs("header"),
+        header.wsp.debugAs("header"),
         code.debugAs("code").wsp,
         LispNode.parser
       )

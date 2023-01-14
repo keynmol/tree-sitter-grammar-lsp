@@ -41,7 +41,7 @@ npmInstall := {
 
 lazy val buildRelease = taskKey[Unit]("")
 buildRelease := {
-  npmInstall.value
+  locally { npmInstall.value }
   build(
     (ThisBuild / baseDirectory).value,
     (Compile / fullLinkJSOutput).value,
@@ -51,7 +51,7 @@ buildRelease := {
 
 lazy val buildDev = taskKey[Unit]("")
 buildDev := {
-  npmInstall.value
+  locally { npmInstall.value }
   build(
     (ThisBuild / baseDirectory).value,
     (Compile / fastLinkJSOutput).value,
@@ -77,9 +77,9 @@ stStdlib        := List("es6")
 libraryDependencies += "net.exoego" %%% "scala-js-nodejs-v16" % "0.14.0" cross CrossVersion.for3Use2_13
 libraryDependencies += "com.github.j-mie6" %%% "parsley" % "4.0.3"
 
-scalaJSLinkerConfig ~={_.withESFeatures(_.withESVersion(ESVersion.ES2018))}
+scalaJSLinkerConfig ~= { _.withESFeatures(_.withESVersion(ESVersion.ES2018)) }
 resolvers ++= Resolver.sonatypeOssRepos("snapshots")
 libraryDependencies += "com.indoorvivants" %%% "opaque-newtypes" % "0.0.2" // SBT
 libraryDependencies += "tech.neander" %%% "langoustine-app" % "0.0.19+5-dc569a9e-SNAPSHOT"
-libraryDependencies +=  "com.disneystreaming" %%% "weaver-cats" % "0.8.1" % Test
+libraryDependencies += "com.disneystreaming" %%% "weaver-cats" % "0.8.1" % Test
 testFrameworks += new TestFramework("weaver.framework.CatsEffect")

@@ -41,7 +41,30 @@ object CorpusTest extends weaver.FunSuite:
 
   }
 
-  type Id[A] = A
+  test("Dodgy code") {
+    val text =
+      """
+       |=======================================
+       |Identifiers
+       |=======================================
+       |
+       |val x = y match {
+       |  case a @ B(1) => a
+       |  case b @ C(d @ (e @ X, _: Y)) => e
+       |  case req @ (POST | GET) -> Root / "test" => 5
+       |}
+       |
+       |---
+       |
+       |(compilation_unit)
+        """.trim.stripMargin
+
+    matches(CorpusFile.parser.parse(text).toEither) { case Right(result) =>
+      matches(result.cases.headOption) { case Some(tc) =>
+        success
+      }
+    }
+  }
 
   test("Entire test case") {
     val text =
@@ -85,6 +108,7 @@ object CorpusTest extends weaver.FunSuite:
               )
             )
         )
+      // expect.same(text.slice(tc.title.span.start))
       }
 
     }

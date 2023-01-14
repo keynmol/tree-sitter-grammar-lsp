@@ -15,6 +15,9 @@ import java.net.URI
 import java.nio.file.Paths
 import io.scalajs.nodejs.url.URL
 import io.scalajs.nodejs.path.Path as JSPath
+import langoustine.lsp.tools.*
+
+import util.chaining.*
 
 enum Mode:
   case Open, Save
@@ -23,43 +26,6 @@ enum GrammarFile:
   case Spec
   case CorpusFile(nm: String)
   case Unknown(relative: String)
-
-class ServerLogic(state: State)(using ExecutionContext):
-  def detectFile(path: DocumentPath): GrammarFile =
-    state.getRoot
-      .map { rootPath =>
-        val relative = JSPath.relative(rootPath.value, path.value)
-        // scribe.info(s"Root: $rootPath, path: $path, ext: ${path.ext}, relative: ${JSPath.basename(relative)}")
-        if relative == "grammar.js" then GrammarFile.Spec
-        else if path.ext == ".txt" && JSPath.dirname(relative) == "corpus" then
-          GrammarFile.CorpusFile(path.filename)
-        else GrammarFile.Unknown(relative)
-      }
-      .getOrElse(GrammarFile.Unknown(path.value))
-
-  def handleFile(path: DocumentPath, mode: Mode) =
-    inline def read = Fs.readFileFuture(path.value, "utf-8")
-
-    detectFile(path) match
-      case GrammarFile.Spec =>
-        read.map(state.updateGrammar(_, path.uri)).collect { case Left(err) =>
-          scribe.error(s"Error updating grammar state: `$err`")
-        }
-      case GrammarFile.CorpusFile(nm) =>
-        read
-          .map(state.indexCorpusFile(_, path))
-          .collect { case Left(err) =>
-            scribe.error(s"Error indexing corpus file `$path`: `$err`")
-          }
-
-      case GrammarFile.Unknown(pth) =>
-        Future {
-          scribe.error(s"Unknown path opened: `$pth`")
-        }
-
-    end match
-  end handleFile
-end ServerLogic
 
 def server(implicit ec: ExecutionContext): LSPBuilder[scala.concurrent.Future] =
   val state = State.create()
@@ -70,6 +36,14 @@ def server(implicit ec: ExecutionContext): LSPBuilder[scala.concurrent.Future] =
     .clearHandlers()
     .withHandler(writer = scribe.writer.SystemErrWriter)
     .replace()
+
+  val encoder = SemanticTokensEncoder(
+    tokenTypes = Vector(
+      SemanticTokenTypes.`type`,
+      SemanticTokenTypes.namespace
+    ),
+    modifiers = Vector.empty
+  )
 
   LSPBuilder
     .create[Future]
@@ -98,6 +72,12 @@ def server(implicit ec: ExecutionContext): LSPBuilder[scala.concurrent.Future] =
                     openClose = Opt(true),
                     save = Opt(true)
                   )
+                ),
+                semanticTokensProvider = Opt(
+                  SemanticTokensOptions(
+                    legend = encoder.legend,
+                    full = Opt(true)
+                  )
                 )
               ),
               Opt(
@@ -116,6 +96,27 @@ def server(implicit ec: ExecutionContext): LSPBuilder[scala.concurrent.Future] =
     }
     .handleNotification(textDocument.didSave) { (in, _) =>
       handleFile(in.textDocument.uri.path, Mode.Save)
+    }
+    .handleRequest(textDocument.semanticTokens.full) { (in, back) =>
+
+      import corpus.*
+
+      detectFile(in.textDocument.uri.path) match
+        case GrammarFile.CorpusFile(_) =>
+          state.getCorpus.items.get(in.textDocument.uri.path) match
+            case None => Future(Opt.empty)
+            case Some(tc) =>
+              val tokens = tc.cases.toVector
+                .flatMap(indexSemanticTokens)
+                .tap(s => scribe.info(s.toString))
+
+              encoder
+                .encode(tokens)
+                .fold(_ => Future(Opt.empty), t => Future.successful(Opt(t)))
+
+        case _ => Future(Opt.empty)
+      end match
+
     }
     .handleRequest(textDocument.documentSymbol) { (in, back) =>
       Future {
@@ -181,5 +182,4 @@ def server(implicit ec: ExecutionContext): LSPBuilder[scala.concurrent.Future] =
         end match
       }
     }
-
 end server
