@@ -1,4 +1,4 @@
-package grammarsy
+package treesitter.lsp
 
 import typings.acorn.mod.*
 import typings.acorn.mod.Options
@@ -62,8 +62,9 @@ def indexGrammar(input: String, location: DocumentUri): Grammar =
           ce.arguments.headOption
             .flatMap(_.as(ObjectExpression))
             .foreach { oe =>
-              gram =
-                Some(Grammar(findReductions(oe), TextIndex.of(input), location))
+              gram = Some(
+                Grammar(findReductions(oe), TextIndex.of(input), location.path)
+              )
             }
       }
   )

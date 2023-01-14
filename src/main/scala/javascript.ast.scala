@@ -1,4 +1,4 @@
-package grammarsy
+package treesitter.lsp
 
 import scalajs.js
 import scala.reflect.TypeTest

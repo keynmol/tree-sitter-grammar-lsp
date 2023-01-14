@@ -1,13 +1,17 @@
-package grammarsy
+package treesitter.lsp
 
 import typings.acorn.mod.Node
 
+import io.scalajs.nodejs.path.Path as JSPath
 import langoustine.lsp.all.*
+
+import opaque_newtypes.*
+import io.scalajs.nodejs.url.URL
 
 case class Grammar(
     rules: Map[Rule, Reductions],
     text: TextIndex,
-    location: DocumentUri
+    location: DocumentPath
 )
 
 case class Rule(name: String, position: Pos)
@@ -87,3 +91,19 @@ object TextIndex:
 
   end of
 end TextIndex
+
+extension [T](o: Opt[T])
+  def toOption =
+    Option.apply(o.asInstanceOf[T | Null]).asInstanceOf[Option[T]]
+
+opaque type DocumentPath = String
+object DocumentPath extends OpaqueString[DocumentPath]:
+  extension (p: DocumentPath)
+    def ext = JSPath.extname(p)
+    def uri = DocumentUri("file://" + p)
+    def filename = JSPath.basename(p)
+
+extension (uri: DocumentUri)
+  def path =
+    val url = new URL(uri.value)
+    DocumentPath(url.pathname)

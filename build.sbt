@@ -1,3 +1,4 @@
+import org.scalajs.linker.interface.ESVersion
 enablePlugins(ScalablyTypedConverterExternalNpmPlugin, ScalaJSPlugin)
 
 import scala.sys.process.Process
@@ -24,11 +25,23 @@ import sys.process.*
 
 lazy val npmInstall = taskKey[Unit]("")
 npmInstall := {
-  "npm install".!!
+
+  val cached = Tracked.inputChanged[ModifiedFileInfo, Unit](
+    streams.value.cacheStoreFactory.make("input")
+  ) { (changed: Boolean, in: ModifiedFileInfo) =>
+    if (changed) "npm install".!!
+    else ()
+
+  }
+
+  cached(
+    FileInfo.lastModified((ThisBuild / baseDirectory).value / "package.json")
+  )
 }
 
 lazy val buildRelease = taskKey[Unit]("")
 buildRelease := {
+  locally { npmInstall.value }
   build(
     (ThisBuild / baseDirectory).value,
     (Compile / fullLinkJSOutput).value,
@@ -38,6 +51,7 @@ buildRelease := {
 
 lazy val buildDev = taskKey[Unit]("")
 buildDev := {
+  locally { npmInstall.value }
   build(
     (ThisBuild / baseDirectory).value,
     (Compile / fastLinkJSOutput).value,
@@ -54,7 +68,6 @@ def build(base: File, sjs: File, name: String) = {
 
   IO.copyFile(sjs / "main.js", jsPath)
 
-  "npm install".!!
   Process(Seq("npm", "exec", "-c", s"pkg $jsPath --out-path $bin")).!!
 }
 
@@ -62,5 +75,11 @@ stMinimize      := Selection.AllExcept("acorn")
 stUseScalaJsDom := false
 stStdlib        := List("es6")
 libraryDependencies += "net.exoego" %%% "scala-js-nodejs-v16" % "0.14.0" cross CrossVersion.for3Use2_13
+libraryDependencies += "com.github.j-mie6" %%% "parsley" % "4.0.3"
 
-libraryDependencies += "tech.neander" %%% "langoustine-app" % "0.0.17"
+scalaJSLinkerConfig ~= { _.withESFeatures(_.withESVersion(ESVersion.ES2018)) }
+resolvers ++= Resolver.sonatypeOssRepos("snapshots")
+libraryDependencies += "com.indoorvivants" %%% "opaque-newtypes" % "0.0.2" // SBT
+libraryDependencies += "tech.neander" %%% "langoustine-app" % "0.0.19+5-dc569a9e-SNAPSHOT"
+libraryDependencies += "com.disneystreaming" %%% "weaver-cats" % "0.8.1" % Test
+testFrameworks += new TestFramework("weaver.framework.CatsEffect")

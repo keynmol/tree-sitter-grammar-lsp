@@ -1,6 +1,11 @@
-package grammarsy
+package treesitter.lsp
+
+import corpus.*
 
 import langoustine.lsp.all.*
+import scala.util.Try
+import parsley.Success
+import parsley.Failure
 
 enum Result[+A]:
   case Get(a: A)
@@ -11,7 +16,11 @@ enum Result[+A]:
       case NotReady => None
       case Get(a)   => Some(a)
 
-class State private (var state: Option[Grammar]):
+class State private (
+    private var grammar: Option[Grammar],
+    private var corpus: Corpus,
+    private var root: Option[DocumentPath]
+):
   def identifierAt(pos: Position): Result[Option[String]] =
     ifReady { grammar =>
       grammar.text.lines.get(pos.line.value).map { l =>
@@ -35,7 +44,7 @@ class State private (var state: Option[Grammar]):
             locStart <- grammar.text.back(rule.position.start)
             locEnd   <- grammar.text.back(rule.position.end)
           yield rule.name -> Location(
-            grammar.location,
+            grammar.location.uri,
             Range(locStart.toPosition, locEnd.toPosition)
           )
         }
@@ -51,7 +60,7 @@ class State private (var state: Option[Grammar]):
         locStart <- grammar.text.back(r.position.start)
         locEnd   <- grammar.text.back(r.position.end)
       yield r.name -> Location(
-        grammar.location,
+        grammar.location.uri,
         Range(locStart.toPosition, locEnd.toPosition)
       )
     }
@@ -67,12 +76,28 @@ class State private (var state: Option[Grammar]):
     }
 
   def ifReady[A](f: Grammar => A): Result[A] =
-    state.map(f).map(Result.Get.apply).getOrElse(Result.NotReady)
+    grammar.map(f).map(Result.Get.apply).getOrElse(Result.NotReady)
 
-  def index(str: String, uri: DocumentUri) =
-    state = Some(indexGrammar(str, uri))
+  def indexCorpusFile(str: String, path: DocumentPath) =
+    CorpusFile.parser.parse(str).toEither.map { cf =>
+      synchronized { corpus = corpus.copy(corpus.items.updated(path, cf)) }
+    }
+
+  def updateGrammar(str: String, uri: DocumentUri): Either[String, Unit] =
+    Try {
+      synchronized {
+        grammar = Some(indexGrammar(str, uri))
+      }
+    }.toEither.left.map(_.getMessage)
+
+  def setRoot(path: DocumentPath): Unit =
+    synchronized { root = Some(path) }
+
+  def getRoot: Option[DocumentPath] = root
+  def getCorpus = corpus
+
 end State
 
 object State:
   def create() =
-    new State(None)
+    new State(None, Corpus(Map.empty), None)
