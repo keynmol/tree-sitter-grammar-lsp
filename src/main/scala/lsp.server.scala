@@ -18,6 +18,7 @@ import io.scalajs.nodejs.path.Path as JSPath
 import langoustine.lsp.tools.*
 
 import util.chaining.*
+import scribe.output.format.ANSIOutputFormat
 
 enum Mode:
   case Open, Save
@@ -34,7 +35,7 @@ def server(implicit ec: ExecutionContext): LSPBuilder[scala.concurrent.Future] =
 
   scribe.Logger.root
     .clearHandlers()
-    .withHandler(writer = scribe.writer.SystemErrWriter)
+    .withHandler(writer = scribe.writer.SystemErrWriter, outputFormat = ANSIOutputFormat)
     .replace()
 
   val encoder = SemanticTokensEncoder(
