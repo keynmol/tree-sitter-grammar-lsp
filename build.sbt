@@ -5,10 +5,6 @@ import scala.sys.process.Process
 
 scalaVersion := "3.2.1"
 
-externalNpm := {
-  baseDirectory.value
-}
-
 Global / onChangedBuildSource := ReloadOnSourceChanges
 
 scalaJSLinkerConfig ~= { conf =>
